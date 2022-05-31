@@ -6,6 +6,8 @@
 #define KERNEL_IMAGE_PROCESSING_CUDA_KERNEL_H
 
 #include <iostream>
+#define MASK_WIDTH 3
+#define MASK_RADIUS MASK_WIDTH / 2
 
 enum kernelsType {
     boxBlur = 0,

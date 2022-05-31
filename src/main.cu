@@ -1,7 +1,7 @@
 #include <iostream>
 #include "image/PpmParser.h"
 #include "kernel/Kernel.h"
-//#include "convolution/Convolution.cu"
+#include "convolution/Convolution.cuh"
 
 #define IMPORT_PATH "../resources/source/"
 #define EXPORT_PATH "../resources/results/"
@@ -22,31 +22,6 @@ static void CheckCudaErrorAux(const char *file, unsigned line,
     std::cerr << statement << " returned " << cudaGetErrorString(err) << "("
               << err << ") at " << file << ":" << line << std::endl;
     exit(1);
-}
-
-
-#define MASK_WIDTH 3
-#define MASK_RADIUS 1
-#define PIXEL_LOST 2
-
-__global__ void convolutionNaive(float* data, float* mask, float* result,
-                                 int width, int height, int channels) {
-    int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
-    int row = blockIdx.y * blockDim.y + threadIdx.y + MASK_RADIUS;
-
-    if (col < width - PIXEL_LOST && row < height - PIXEL_LOST) {
-        float accum;
-
-        for (int k = 0; k < channels; k++){
-            accum = 0;
-            for (int y = -MASK_RADIUS; y <= MASK_RADIUS; y++) {
-                for (int x = -MASK_RADIUS; x <= MASK_RADIUS; x++) {
-                    accum += data[((row + y) * width + col + x) * channels + k] * mask[(y + MASK_RADIUS) * MASK_WIDTH + x + MASK_RADIUS];
-                }
-            }
-            result[(row * (width - 2) + col) * channels + k] = accum;
-        }
-    }
 }
 
 
