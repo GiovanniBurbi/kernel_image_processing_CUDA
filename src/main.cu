@@ -14,8 +14,9 @@
 #define CHANNELS 3
 
 #define ITER 1
+#define THREADS3D true
 
-#define CONSTANT_MEM false
+#define CONSTANT_MEM true
 
 __constant__ float MASK[MASK_WIDTH * MASK_WIDTH];
 
@@ -101,24 +102,36 @@ int main() {
                                          cudaMemcpyHostToDevice));
         }
 
-        dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
-        dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH), ceil((float) outputHeight / BLOCK_WIDTH));
-        if(CONSTANT_MEM){
-            convolutionConstantMemory<<<dimGrid, dimBlock>>>(device_imageData,
-                                                             device_outputData, width, height, channels);
-            output_name.append("ConstMemory");
+        if(!THREADS3D){
+            dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
+            dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH), ceil((float) outputHeight / BLOCK_WIDTH));
+            if (CONSTANT_MEM) {
+                convolutionConstantMemory<<<dimGrid, dimBlock>>>(device_imageData,
+                                                                 device_outputData, width, height, channels);
+                output_name.append("ConstMemory");
+            } else {
+                convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
+                                                        device_outputData, width, height, channels);
+                output_name.append("Naive");
+            }
         }
+        if(THREADS3D){
+            dim3 dimBlock(18, 18, CHANNELS);
+            dim3 dimGrid(ceil((float) outputWidth / dimBlock.x), ceil((float) outputHeight / dimBlock.y));
 
-        if(!CONSTANT_MEM) {
-            convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
-                                                    device_outputData, width, height, channels);
-            output_name.append("Naive");
+            output_name.append("3DCoverage");
+            if(CONSTANT_MEM){
+                convolutionNaive3DThreadsCoverageConstantMemory<<<dimGrid, dimBlock>>>(device_imageData,
+                                                                         device_outputData, width, height, channels);
+                output_name.append("ConstMemory");
+            }
+
+            if(!CONSTANT_MEM) {
+                convolutionNaive3DThreadsCoverage<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
+                                                                         device_outputData, width, height, channels);
+                output_name.append("Naive");
+            }
         }
-//        dim3 dimBlock(18, 18, CHANNELS);
-//        dim3 dimGrid(ceil((float) outputWidth / dimBlock.x), ceil((float) outputHeight / dimBlock.y));
-//
-//        convolutionNaive3DThreadsCoverage<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
-//                                                device_outputData, width, height, channels);
 
         CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
