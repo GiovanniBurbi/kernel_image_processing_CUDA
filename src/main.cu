@@ -15,6 +15,10 @@
 
 #define ITER 1
 
+#define CONSTANT_MEM false
+
+__constant__ float MASK[MASK_WIDTH * MASK_WIDTH];
+
 static void CheckCudaErrorAux(const char *, unsigned, const char *,
                               cudaError_t);
 #define CUDA_CHECK_RETURN(value) CheckCudaErrorAux(__FILE__,__LINE__, #value, value)
@@ -74,25 +78,42 @@ int main() {
 
         startTime = std::chrono::high_resolution_clock::now();
 
+        if(CONSTANT_MEM) {
+            CUDA_CHECK_RETURN(cudaMemcpyToSymbol(MASK, kernel,
+                                                 MASK_WIDTH * MASK_WIDTH * sizeof(float)));
+        }
+
         CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageData,
                                      width * height * channels * sizeof(float)));
         CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputData,
                                      outputWidth * outputHeight * channels * sizeof(float)));
-        CUDA_CHECK_RETURN(cudaMalloc((void **) &device_maskData,
-                                     MASK_WIDTH * MASK_WIDTH * sizeof(float)));
+        if(!CONSTANT_MEM) {
+            CUDA_CHECK_RETURN(cudaMalloc((void **) &device_maskData,
+                                         MASK_WIDTH * MASK_WIDTH * sizeof(float)));
+        }
 
         CUDA_CHECK_RETURN(cudaMemcpy(device_imageData, host_imageData,
                                      width * height * channels * sizeof(float),
                                      cudaMemcpyHostToDevice));
-        CUDA_CHECK_RETURN(cudaMemcpy(device_maskData, kernel,
-                                     MASK_WIDTH * MASK_WIDTH * sizeof(float),
-                                     cudaMemcpyHostToDevice));
+        if(!CONSTANT_MEM) {
+            CUDA_CHECK_RETURN(cudaMemcpy(device_maskData, kernel,
+                                         MASK_WIDTH * MASK_WIDTH * sizeof(float),
+                                         cudaMemcpyHostToDevice));
+        }
 
         dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
         dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH), ceil((float) outputHeight / BLOCK_WIDTH));
-        convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
-                                                device_outputData, width, height, channels);
+        if(CONSTANT_MEM){
+            convolutionConstantMemory<<<dimGrid, dimBlock>>>(device_imageData,
+                                                             device_outputData, width, height, channels);
+            output_name.append("ConstMemory");
+        }
 
+        if(!CONSTANT_MEM) {
+            convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
+                                                    device_outputData, width, height, channels);
+            output_name.append("Naive");
+        }
 //        dim3 dimBlock(18, 18, CHANNELS);
 //        dim3 dimGrid(ceil((float) outputWidth / dimBlock.x), ceil((float) outputHeight / dimBlock.y));
 //
@@ -110,11 +131,9 @@ int main() {
 
         cudaFree(device_imageData);
         cudaFree(device_outputData);
-        cudaFree(device_maskData);
+        if(!CONSTANT_MEM) cudaFree(device_maskData);
 
     }
-
-    output_name.append("Naive");
 
     log.append("took ").append(std::to_string(time/ITER)).append(" seconds");
     printf("%s\n", log.c_str());
