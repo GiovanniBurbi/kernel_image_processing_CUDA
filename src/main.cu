@@ -1,11 +1,19 @@
 #include <iostream>
+#include <chrono>
+#include <string>
+
 #include "image/PpmParser.h"
 #include "kernel/Kernel.h"
 #include "convolution/Convolution.cuh"
 
+
 #define IMPORT_PATH "../resources/source/"
 #define EXPORT_PATH "../resources/results/"
 #define IMAGE "lake"
+#define BLOCK_WIDTH 32
+#define CHANNELS 3
+
+#define ITER 1
 
 static void CheckCudaErrorAux(const char *, unsigned, const char *,
                               cudaError_t);
@@ -24,13 +32,15 @@ static void CheckCudaErrorAux(const char *file, unsigned line,
     exit(1);
 }
 
-
 int main() {
     std::string filename;
     std::string output_name;
 
+    std::string log;
+    log.append("Cuda version ");
+
     filename.append(IMPORT_PATH).append(IMAGE).append(".ppm");
-    output_name.append(EXPORT_PATH).append(IMAGE);
+    output_name.append(EXPORT_PATH).append(IMAGE).append("Cuda");
 
     float* kernel = createKernel(kernelsType::outline);
 
@@ -42,49 +52,76 @@ int main() {
 
     int outputWidth = width - MASK_RADIUS * 2;
     int outputHeight = height - MASK_RADIUS * 2;
+    Image_t *output;
 
-    Image_t* output = new_image(outputWidth, outputHeight, channels);
+    float time = 0;
 
-    float* host_imageData = image_getData(image);
-    float * host_outputData = image_getData(output);
+    std::chrono::high_resolution_clock::time_point startTime;
+    std::chrono::high_resolution_clock::time_point endTime;
 
-    float *device_imageData;
-    float *device_outputData;
-    float *device_maskData;
+    for (int i = 0; i < ITER; i++) {
 
-    CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageData,
-               width * height * channels * sizeof(float)));
-    CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputData,
-               outputWidth * outputHeight * channels * sizeof(float)));
-    CUDA_CHECK_RETURN(cudaMalloc((void **) &device_maskData,
-               MASK_WIDTH * MASK_WIDTH * sizeof(float)));
+        if (i != 0) image_delete(output);
 
-    CUDA_CHECK_RETURN(cudaMemcpy(device_imageData, host_imageData,
-               width * height * channels * sizeof(float),
-               cudaMemcpyHostToDevice));
-    CUDA_CHECK_RETURN(cudaMemcpy(device_maskData, kernel,
-               MASK_WIDTH * MASK_WIDTH * sizeof(float),
-               cudaMemcpyHostToDevice));
+        output = new_image(outputWidth, outputHeight, channels);
 
-    dim3 dimBlock(32, 32);
-    dim3 dimGrid(ceil((float)outputWidth / dimBlock.x), ceil((float)outputHeight / dimBlock.y));
+        float *host_imageData = image_getData(image);
+        float *host_outputData = image_getData(output);
 
-    convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
-                                            device_outputData, width, height, channels);
+        float *device_imageData;
+        float *device_outputData;
+        float *device_maskData;
 
-    CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+        startTime = std::chrono::high_resolution_clock::now();
 
-    CUDA_CHECK_RETURN(cudaMemcpy(host_outputData, device_outputData,
-               outputWidth * outputHeight * channels * sizeof(float),
-               cudaMemcpyDeviceToHost));
+        CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageData,
+                                     width * height * channels * sizeof(float)));
+        CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputData,
+                                     outputWidth * outputHeight * channels * sizeof(float)));
+        CUDA_CHECK_RETURN(cudaMalloc((void **) &device_maskData,
+                                     MASK_WIDTH * MASK_WIDTH * sizeof(float)));
+
+        CUDA_CHECK_RETURN(cudaMemcpy(device_imageData, host_imageData,
+                                     width * height * channels * sizeof(float),
+                                     cudaMemcpyHostToDevice));
+        CUDA_CHECK_RETURN(cudaMemcpy(device_maskData, kernel,
+                                     MASK_WIDTH * MASK_WIDTH * sizeof(float),
+                                     cudaMemcpyHostToDevice));
+
+        dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
+        dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH), ceil((float) outputHeight / BLOCK_WIDTH));
+        convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
+                                                device_outputData, width, height, channels);
+
+//        dim3 dimBlock(18, 18, CHANNELS);
+//        dim3 dimGrid(ceil((float) outputWidth / dimBlock.x), ceil((float) outputHeight / dimBlock.y));
+//
+//        convolutionNaive3DThreadsCoverage<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
+//                                                device_outputData, width, height, channels);
+
+        CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+
+        CUDA_CHECK_RETURN(cudaMemcpy(host_outputData, device_outputData,
+                                     outputWidth * outputHeight * channels * sizeof(float),
+                                     cudaMemcpyDeviceToHost));
+
+        endTime = std::chrono::high_resolution_clock::now();
+        time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+
+        cudaFree(device_imageData);
+        cudaFree(device_outputData);
+        cudaFree(device_maskData);
+
+    }
+
+    output_name.append("Naive");
+
+    log.append("took ").append(std::to_string(time/ITER)).append(" seconds");
+    printf("%s\n", log.c_str());
 
     output_name.append(".ppm");
 
     PPM_export(output_name.c_str(), output);
-
-    cudaFree(device_imageData);
-    cudaFree(device_outputData);
-    cudaFree(device_maskData);
 
     image_delete(image);
     image_delete(output);
