@@ -9,5 +9,7 @@
 
 __global__ void convolutionNaive(const float* data, const float* mask, float* result,
                                  int width, int height, int channels);
+__global__ void convolutionNaive3DThreadsCoverage(const float* data, const float* mask, float* result,
+                                 int width, int height, int channels);
 
 #endif //KERNEL_IMAGE_PROCESSING_CUDA_CONVOLUTION_CUH

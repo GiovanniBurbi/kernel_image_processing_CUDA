@@ -26,3 +26,20 @@ __global__ void convolutionNaive(const float* data, const float* mask, float* re
         }
     }
 }
+
+__global__ void convolutionNaive3DThreadsCoverage(const float* data, const float* mask, float* result,
+                                                  int width, int height, int channels) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
+    int row = blockIdx.y * blockDim.y + threadIdx.y + MASK_RADIUS;
+
+    if (col < width - PIXEL_LOST && row < height - PIXEL_LOST) {
+        float accum = 0;
+
+        for (int y = -MASK_RADIUS; y <= MASK_RADIUS; y++) {
+            for (int x = -MASK_RADIUS; x <= MASK_RADIUS; x++) {
+                accum += data[((row + y) * width + col + x) * channels + threadIdx.z] * mask[(y + MASK_RADIUS) * MASK_WIDTH + x + MASK_RADIUS];
+            }
+        }
+        result[(row * (width - 2) + col) * channels + threadIdx.z] = accum;
+    }
+}
