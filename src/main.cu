@@ -11,6 +11,7 @@
 #define EXPORT_PATH "../resources/results/"
 #define IMAGE "lake"
 #define BLOCK_WIDTH 32
+#define BLOCK_WIDTH_3D 18
 #define CHANNELS 3
 
 #define ITER 1
@@ -116,7 +117,7 @@ int main() {
             }
         }
         if(THREADS3D){
-            dim3 dimBlock(18, 18, CHANNELS);
+            dim3 dimBlock(BLOCK_WIDTH_3D, BLOCK_WIDTH_3D, CHANNELS);
             dim3 dimGrid(ceil((float) outputWidth / dimBlock.x), ceil((float) outputHeight / dimBlock.y));
 
             output_name.append("3DCoverage");
