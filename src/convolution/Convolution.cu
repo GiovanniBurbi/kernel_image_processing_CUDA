@@ -9,7 +9,7 @@ extern __constant__ float MASK[MASK_WIDTH * MASK_WIDTH];
 
 #define PIXEL_LOST MASK_RADIUS * 2
 
-__global__ void convolutionNaive(const float* data, const float* mask, float* result,
+__global__ void convolutionNaive(const float* __restrict__ data, const float* __restrict__ mask, float* result,
                                  int width, int height, int channels) {
     int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
     int row = blockIdx.y * blockDim.y + threadIdx.y + MASK_RADIUS;
@@ -29,7 +29,7 @@ __global__ void convolutionNaive(const float* data, const float* mask, float* re
     }
 }
 
-__global__ void convolutionNaive3DThreadsCoverage(const float* data, const float* mask, float* result,
+__global__ void convolutionNaive3DThreadsCoverage(const float* __restrict__ data, const float*  __restrict__ mask, float* result,
                                                   int width, int height, int channels) {
     int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
     int row = blockIdx.y * blockDim.y + threadIdx.y + MASK_RADIUS;
@@ -46,7 +46,7 @@ __global__ void convolutionNaive3DThreadsCoverage(const float* data, const float
     }
 }
 
-__global__ void convolutionConstantMemory(const float* data, float* result,
+__global__ void convolutionConstantMemory(const float* __restrict__ data, float* result,
                                  int width, int height, int channels) {
     int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
     int row = blockIdx.y * blockDim.y + threadIdx.y + MASK_RADIUS;
@@ -66,7 +66,7 @@ __global__ void convolutionConstantMemory(const float* data, float* result,
     }
 }
 
-__global__ void convolutionNaive3DThreadsCoverageConstantMemory(const float* data, float* result,
+__global__ void convolutionNaive3DThreadsCoverageConstantMemory(const float* __restrict__ data, float* result,
                                                                 int width, int height, int channels) {
     int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
     int row = blockIdx.y * blockDim.y + threadIdx.y + MASK_RADIUS;

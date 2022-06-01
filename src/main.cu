@@ -15,7 +15,8 @@
 #define CHANNELS 3
 
 #define ITER 1
-#define THREADS3D true
+#define THREADS3D false
+#define THREADS2D true
 
 #define CONSTANT_MEM true
 
@@ -103,7 +104,7 @@ int main() {
                                          cudaMemcpyHostToDevice));
         }
 
-        if(!THREADS3D){
+        if(THREADS2D){
             dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
             dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH), ceil((float) outputHeight / BLOCK_WIDTH));
             if (CONSTANT_MEM) {
