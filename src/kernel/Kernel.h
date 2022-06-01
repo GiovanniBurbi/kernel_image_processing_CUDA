@@ -7,7 +7,7 @@
 
 #include <iostream>
 #define MASK_WIDTH 3
-#define MASK_RADIUS MASK_WIDTH / 2
+#define MASK_RADIUS (MASK_WIDTH / 2)
 
 enum kernelsType {
     boxBlur = 0,
