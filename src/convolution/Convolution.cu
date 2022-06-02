@@ -36,6 +36,34 @@ __global__ void convolutionNaive(const float* __restrict__ data, const float* __
     }
 }
 
+__global__ void convolutionNaiveSoA(const float* __restrict__ dataR, const float* __restrict__ dataG, const float* __restrict__ dataB,
+                                    const float* __restrict__ mask, float* __restrict__ resultR, float* __restrict__ resultG, float* __restrict__ resultB,
+                                    int width, int height) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (col < width && row < height) {
+        float accumR = 0;
+        float accumG = 0;
+        float accumB = 0;
+        float maskValue;
+
+        for (int y = -MASK_RADIUS; y <= MASK_RADIUS; y++) {
+            for (int x = -MASK_RADIUS; x <= MASK_RADIUS; x++) {
+                if((row + y) > -1 && (row + y) < height && (col + x) > -1 && (col + x) < width) {
+                    maskValue = mask[(y + MASK_RADIUS) * MASK_WIDTH + x + MASK_RADIUS];
+                    accumR += dataR[(row + y) * width + col + x] * maskValue;
+                    accumG += dataG[(row + y) * width + col + x] * maskValue;
+                    accumB += dataB[(row + y) * width + col + x] * maskValue;
+                }
+            }
+        }
+            resultR[row * width + col] = accumR;
+            resultG[row * width + col] = accumG;
+            resultB[row * width + col] = accumB;
+    }
+}
+
 __global__ void convolutionNaiveNoPadding(const float* __restrict__ data, const float* __restrict__ mask, float* result,
                                           int width, int height, int channels) {
     int col = blockIdx.x * blockDim.x + threadIdx.x + MASK_RADIUS;
@@ -96,6 +124,33 @@ __global__ void convolutionConstantMemoryNoPadding(const float* __restrict__ dat
             }
             result[(row * (width - PIXEL_LOST) + col) * channels + k] = accum;
         }
+    }
+}
+
+__global__ void convolutionConstantMemorySoA(const float* __restrict__ dataR, const float* __restrict__ dataG, const float* __restrict__ dataB,
+                                    float* __restrict__ resultR, float* __restrict__ resultG, float* __restrict__ resultB, int width, int height) {
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (col < width && row < height) {
+        float accumR = 0;
+        float accumG = 0;
+        float accumB = 0;
+        float maskValue;
+
+        for (int y = -MASK_RADIUS; y <= MASK_RADIUS; y++) {
+            for (int x = -MASK_RADIUS; x <= MASK_RADIUS; x++) {
+                if((row + y) > -1 && (row + y) < height && (col + x) > -1 && (col + x) < width) {
+                    maskValue = MASK[(y + MASK_RADIUS) * MASK_WIDTH + x + MASK_RADIUS];
+                    accumR += dataR[(row + y) * width + col + x] * maskValue;
+                    accumG += dataG[(row + y) * width + col + x] * maskValue;
+                    accumB += dataB[(row + y) * width + col + x] * maskValue;
+                }
+            }
+        }
+        resultR[row * width + col] = accumR;
+        resultG[row * width + col] = accumG;
+        resultB[row * width + col] = accumB;
     }
 }
 
@@ -194,4 +249,72 @@ __global__ void convolutionTilingNoPadding(const float* __restrict__ data, float
             result[(y * (width - PIXEL_LOST) + x) * channels + k] = accum;
         __syncthreads();
     }
+}
+
+__global__ void convolutionTilingSoA(const float* __restrict__ dataR, const float* __restrict__ dataG, const float* __restrict__ dataB,
+                                     float* __restrict__ resultR, float* __restrict__ resultG, float* __restrict__ resultB, int width, int height){
+    __shared__ float dataR_ds[w][w];
+    __shared__ float dataG_ds[w][w];
+    __shared__ float dataB_ds[w][w];
+
+    // First batch loading
+    int dest = threadIdx.y * TILE_WIDTH + threadIdx.x;
+    int destY = dest / w;
+    int destX = dest % w;
+    int srcY = blockIdx.y * TILE_WIDTH + destY - MASK_RADIUS;
+    int srcX = blockIdx.x * TILE_WIDTH + destX - MASK_RADIUS;
+    int src = (srcY * width + srcX);
+    if (srcY >= 0 && srcY < height && srcX >= 0 && srcX < width) {
+        dataR_ds[destY][destX] = dataR[src];
+        dataG_ds[destY][destX] = dataG[src];
+        dataB_ds[destY][destX] = dataB[src];
+    } else {
+        dataR_ds[destY][destX] = 0;
+        dataG_ds[destY][destX] = 0;
+        dataB_ds[destY][destX] = 0;
+    }
+
+    // Second batch loading
+    dest = threadIdx.y * TILE_WIDTH + threadIdx.x + TILE_WIDTH * TILE_WIDTH;
+    destY = dest / w;
+    destX = dest % w;
+    srcY = blockIdx.y * TILE_WIDTH + destY - MASK_RADIUS;
+    srcX = blockIdx.x * TILE_WIDTH + destX - MASK_RADIUS;
+    src = (srcY * width + srcX);
+    if (destY < w) {
+        if (srcY >= 0 && srcY < height && srcX >= 0 && srcX < width) {
+            dataR_ds[destY][destX] = dataR[src];
+            dataG_ds[destY][destX] = dataG[src];
+            dataB_ds[destY][destX] = dataB[src];
+        } else {
+            dataR_ds[destY][destX] = 0;
+            dataG_ds[destY][destX] = 0;
+            dataB_ds[destY][destX] = 0;
+        }
+    }
+    __syncthreads();
+
+    float accumR = 0;
+    float accumG = 0;
+    float accumB = 0;
+
+    float maskValue;
+
+    for (int y = 0; y < MASK_WIDTH; y++) {
+        for (int x = 0; x < MASK_WIDTH; x++) {
+            maskValue = MASK[y * MASK_WIDTH + x];
+            accumR += dataR_ds[threadIdx.y + y][threadIdx.x + x] * maskValue;
+            accumG += dataG_ds[threadIdx.y + y][threadIdx.x + x] * maskValue;
+            accumB += dataB_ds[threadIdx.y + y][threadIdx.x + x] * maskValue;
+        }
+    }
+    int y = blockIdx.y * TILE_WIDTH + threadIdx.y;
+    int x = blockIdx.x * TILE_WIDTH + threadIdx.x;
+    if (y < height && x < width) {
+        resultR[(y * width + x)] = accumR;
+        resultG[(y * width + x)] = accumG;
+        resultB[(y * width + x)] = accumB;
+    }
+
+    __syncthreads();
 }

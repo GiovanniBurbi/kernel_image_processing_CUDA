@@ -184,6 +184,90 @@ Image_t* PPM_import(const char *filename) {
     return img;
 }
 
+/*
+ * Import a ppm image and return a pointer to an ImageSoA_t struct
+ * The data layout is Structure of Arrays
+ * */
+ImageSoA_t* PPM_importSoA(const char *filename) {
+    ImageSoA_t* img;
+    FILE* file;
+    char *header;
+    char *line;
+    int ii, jj, kk, channels;
+    int width, height, depth;
+    unsigned char *charData, *charIter;
+    float *imgR, *imgG, *imgB, *floatRIter, *floatGIter, *floatBIter;
+    float scale;
+
+    img = NULL;
+
+    file = fopen(filename, "rb");
+    if (file == NULL) {
+        printf("Could not open %s\n", filename);
+        goto cleanup;
+    }
+    header = File_readLine(file);
+    if (header == NULL) {
+        printf("Could not read from %s\n", filename);
+        goto cleanup;
+    } else if (strcmp(header, "P6") != 0 && strcmp(header, "P6\n") != 0
+               && strcmp(header, "P5") != 0 && strcmp(header, "P5\n") != 0
+               && strcmp(header, "S6") != 0 && strcmp(header, "S6\n") != 0) {
+        printf("Could not find magic number for %s\n", filename);
+        goto cleanup;
+    }
+
+    // P5 are monochrome while P6/S6 are RGB
+    // S6 needs to parse number of channels out of file
+    if (strcmp(header, "P5") == 0 || strcmp(header, "P5\n") == 0) {
+        channels = 1;
+        line = nextLine(file);
+        parseDimensions(line, &width, &height);
+    } else if (strcmp(header, "P6") == 0 || strcmp(header, "P6\n") == 0) {
+        channels = 3;
+        line = nextLine(file);
+        parseDimensions(line, &width, &height);
+    } else {
+        line = nextLine(file);
+        parseDimensions(line, &width, &height, &channels);
+    }
+
+    // the line now contains the depth information
+    line = nextLine(file);
+    parseDepth(line, &depth);
+
+    // the rest of the lines contain the data in binary format
+    charData = (unsigned char *) File_read(file,
+                                           width * channels * sizeof(unsigned char), height);
+
+    img = new_imageSoA(width, height, channels);
+
+    imgR = image_getR(img);
+    imgG = image_getG(img);
+    imgB = image_getB(img);
+
+    charIter = charData;
+    floatRIter = imgR;
+    floatGIter = imgG;
+    floatBIter = imgB;
+
+    scale = 1.0f / ((float) depth);
+    for (ii = 0; ii < height; ii++) {
+        for (jj = 0; jj < width; jj++) {
+            floatRIter[ii * width + jj] = ((float) *charIter) * scale;
+            charIter++;
+            floatGIter[ii * width + jj] = ((float) *charIter) * scale;
+            charIter++;
+            floatBIter[ii * width + jj] = ((float) *charIter) * scale;
+            charIter++;
+        }
+    }
+
+    free(charData);
+    cleanup: fclose(file);
+    return img;
+}
+
 bool PPM_export(const char *filename, Image_t* img) {
     int ii;
     int jj;
@@ -231,6 +315,80 @@ bool PPM_export(const char *filename, Image_t* img) {
                 floatIter++;
                 charIter++;
             }
+        }
+    }
+
+    bool writeResult = File_write(file, charData,
+                                  width * channels * sizeof(unsigned char), height);
+
+    free(charData);
+    fflush(file);
+    fclose(file);
+
+    return true;
+}
+
+/*
+ * It takes as input a reference to an ImageSoA_t struct and export a ppm image from it
+ * */
+bool PPM_exportSoA(const char *filename, ImageSoA_t* img) {
+    int ii;
+    int jj;
+    int kk;
+    int depth;
+    int width;
+    int height;
+    int channels;
+    FILE* file;
+    float *floatRIter;
+    float *floatGIter;
+    float *floatBIter;
+    unsigned char *charData;
+    unsigned char *charIter;
+
+    file = fopen(filename, "wb+");
+    if (file == NULL) {
+        printf("Could not open %s in mode %s\n", filename, "wb+");
+        return false;
+    }
+
+    width = image_getWidth(img);
+    height = image_getHeight(img);
+    channels = 3;
+    depth = 255;
+
+    if (channels == 1) {
+        fprintf(file, "P5\n");
+    } else {
+        fprintf(file, "P6\n");
+    }
+    fprintf(file, "#Created via PPM Export\n");
+    fprintf(file, "%d %d\n", width, height);
+    fprintf(file, "%d\n", depth);
+
+    charData = (unsigned char*) malloc(
+            sizeof(unsigned char) * width * height * channels);
+
+    charIter = charData;
+    floatRIter = image_getR(img);
+    floatGIter = image_getG(img);
+    floatBIter = image_getB(img);
+
+    for (ii = 0; ii < height; ii++) {
+        for (jj = 0; jj < width; jj++) {
+            *charIter = (unsigned char) ceil(
+                    clamp(*floatRIter, 0, 1) * depth);
+            charIter++;
+            *charIter = (unsigned char) ceil(
+                    clamp(*floatGIter, 0, 1) * depth);
+            charIter++;
+            *charIter = (unsigned char) ceil(
+                    clamp(*floatBIter, 0, 1) * depth);
+            charIter++;
+
+            floatRIter++;
+            floatGIter++;
+            floatBIter++;
         }
     }
 
