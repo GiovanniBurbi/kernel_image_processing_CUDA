@@ -21,6 +21,21 @@ __global__ void convolutionNaiveNoPaddingSoA(const float* __restrict__ dataR, co
                                     const float* __restrict__ mask, float* __restrict__ resultR, float* __restrict__ resultG, float* __restrict__ resultB,
                                     int width, int height);
 
+__global__ void convolutionNaiveSoAChannelR(const float* __restrict__ dataR, const float* __restrict__ mask, float* __restrict__ resultR,
+                                            int width, int height);
+__global__ void convolutionNaiveSoAChannelG(const float* __restrict__ dataG, const float* __restrict__ mask, float* __restrict__ resultG,
+                                            int width, int height);
+__global__ void convolutionNaiveSoAChannelB(const float* __restrict__ dataB, const float* __restrict__ mask, float* __restrict__ resultB,
+                                            int width, int height);
+
+__global__ void convolutionNaiveNoPaddingSoAChannelR(const float* __restrict__ dataR, const float* __restrict__ mask, float* __restrict__ resultR,
+                                            int width, int height);
+__global__ void convolutionNaiveNoPaddingSoAChannelG(const float* __restrict__ dataG, const float* __restrict__ mask, float* __restrict__ resultG,
+                                            int width, int height);
+__global__ void convolutionNaiveNoPaddingSoAChannelB(const float* __restrict__ dataB, const float* __restrict__ mask, float* __restrict__ resultB,
+                                            int width, int height);
+
+
 
 
 __global__ void convolutionConstantMemory(const float* __restrict__ data, float* result,
@@ -43,6 +58,14 @@ __global__ void convolutionTilingSoA(const float* __restrict__ dataR, const floa
                                              float* __restrict__ resultR, float* __restrict__ resultG, float* __restrict__ resultB, int width, int height);
 __global__ void convolutionTilingNoPaddingSoA(const float* __restrict__ dataR, const float* __restrict__ dataG, const float* __restrict__ dataB,
                                      float* __restrict__ resultR, float* __restrict__ resultG, float* __restrict__ resultB, int width, int height);
+
+__global__ void convolutionTilingSoAChannelR(const float* __restrict__ dataR, float* __restrict__ resultR, int width, int height);
+__global__ void convolutionTilingSoAChannelG(const float* __restrict__ dataG, float* __restrict__ resultG, int width, int height);
+__global__ void convolutionTilingSoAChannelB(const float* __restrict__ dataB, float* __restrict__ resultB, int width, int height);
+
+__global__ void convolutionTilingNoPaddingSoAChannelR(const float* __restrict__ dataR, float* __restrict__ resultR, int width, int height);
+__global__ void convolutionTilingNoPaddingSoAChannelG(const float* __restrict__ dataG, float* __restrict__ resultG, int width, int height);
+__global__ void convolutionTilingNoPaddingSoAChannelB(const float* __restrict__ dataB, float* __restrict__ resultB, int width, int height);
 
 
 #endif //KERNEL_IMAGE_PROCESSING_CUDA_CONVOLUTION_CUH

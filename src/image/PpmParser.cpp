@@ -3,7 +3,7 @@
 //
 
 #include "PpmParser.h"
-#include "utils/Utils.h"
+#include "../utils/Utils.h"
 
 #include <cstdio>
 #include <cstdlib>
