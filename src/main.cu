@@ -8,12 +8,12 @@
 #include "convolution/Convolution.cuh"
 
 // From terminal
-//#define IMPORT_PATH "resources/source/"
-//#define EXPORT_PATH "resources/results/"
+#define IMPORT_PATH "resources/source/"
+#define EXPORT_PATH "resources/results/"
 
 // From IDE
-#define IMPORT_PATH "../resources/source/"
-#define EXPORT_PATH "../resources/results/"
+//#define IMPORT_PATH "../resources/source/"
+//#define EXPORT_PATH "../resources/results/"
 
 #define IMAGE "lake"
 
@@ -330,14 +330,6 @@ int main() {
 
                 outputImage = new_imageSoA(outputWidth, outputHeight, imageChannels);
 
-                imageDataR = image_getR(inputImage);
-                imageDataG = image_getG(inputImage);
-                imageDataB = image_getB(inputImage);
-
-                outputDataR = image_getR(outputImage);
-                outputDataG = image_getG(outputImage);
-                outputDataB = image_getB(outputImage);
-
                 cudaStream_t stream1;
                 cudaStream_t stream2;
                 cudaStream_t stream3;
@@ -345,6 +337,22 @@ int main() {
                 cudaStreamCreate(&stream1);
                 cudaStreamCreate(&stream2);
                 cudaStreamCreate(&stream3);
+
+                float* host_imageDataR;
+                float* host_imageDataG;
+                float* host_imageDataB;
+
+                float* host_outputDataR;
+                float* host_outputDataG;
+                float* host_outputDataB;
+
+                imageDataR = image_getR(inputImage);
+                imageDataG = image_getG(inputImage);
+                imageDataB = image_getB(inputImage);
+
+                outputDataR = image_getR(outputImage);
+                outputDataG = image_getG(outputImage);
+                outputDataB = image_getB(outputImage);
 
                 startTime = std::chrono::high_resolution_clock::now();
 
@@ -373,55 +381,61 @@ int main() {
                 CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputDataB,
                                              outputWidth * outputHeight * sizeof(float)));
 
-//                CUDA_CHECK_RETURN(cudaMallocHost((void **) &imageDataR,
-//                                                 imageWidth * imageHeight * sizeof(float)));
-//                CUDA_CHECK_RETURN(cudaMallocHost((void **) &imageDataG,
-//                                                 imageWidth * imageHeight * sizeof(float)));
-//                CUDA_CHECK_RETURN(cudaMallocHost((void **) &imageDataB,
-//                                                 imageWidth * imageHeight * sizeof(float)));
-//
-//                CUDA_CHECK_RETURN(cudaMallocHost((void **) &outputDataR,
-//                                                 outputWidth * outputHeight * sizeof(float)));
-//                CUDA_CHECK_RETURN(cudaMallocHost((void **) &outputDataG,
-//                                                 outputWidth * outputHeight * sizeof(float)));
-//                CUDA_CHECK_RETURN(cudaMallocHost((void **) &outputDataB,
-//                                                 outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_imageDataR,
+                                                 imageWidth * imageHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_imageDataG,
+                                                 imageWidth * imageHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_imageDataB,
+                                                 imageWidth * imageHeight * sizeof(float)));
 
-//                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataR, imageDataR, imageWidth * imageHeight * sizeof(float),
-//                                                  cudaMemcpyHostToDevice, stream1));
-//                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataG, imageDataG, imageWidth * imageHeight * sizeof(float),
-//                                                  cudaMemcpyHostToDevice, stream2));
-//                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataB, imageDataB, imageWidth * imageHeight * sizeof(float),
-//                                                  cudaMemcpyHostToDevice, stream3));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataR,
+                                                 outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataG,
+                                                 outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataB,
+                                                 outputWidth * outputHeight * sizeof(float)));
 
-                CUDA_CHECK_RETURN(cudaMemcpy(device_imageDataR, imageDataR, imageWidth * imageHeight * sizeof(float),
-                                                  cudaMemcpyHostToDevice));
-                CUDA_CHECK_RETURN(cudaMemcpy(device_imageDataG, imageDataG, imageWidth * imageHeight * sizeof(float),
-                                                  cudaMemcpyHostToDevice));
-                CUDA_CHECK_RETURN(cudaMemcpy(device_imageDataB, imageDataB, imageWidth * imageHeight * sizeof(float),
-                                                  cudaMemcpyHostToDevice));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataR, imageDataR, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost, stream1));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataG, imageDataG, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost, stream2));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataB, imageDataB, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost, stream3));
+
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataR, host_imageDataR, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToDevice, stream1));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataG, host_imageDataG, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToDevice, stream2));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataB, host_imageDataB, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToDevice, stream3));
 
                 convolutionNaiveNoPaddingSoAChannelR<<<dimGrid, dimBlock, 0, stream1>>>(device_imageDataR, device_maskData, device_outputDataR,
                                                                                         imageWidth, imageHeight);
+
                 convolutionNaiveNoPaddingSoAChannelG<<<dimGrid, dimBlock, 0, stream2>>>(device_imageDataG, device_maskData, device_outputDataG,
                                                                                         imageWidth, imageHeight);
+
                 convolutionNaiveNoPaddingSoAChannelB<<<dimGrid, dimBlock, 0, stream3>>>(device_imageDataB, device_maskData, device_outputDataB,
                                                                                         imageWidth, imageHeight);
 
-                CUDA_CHECK_RETURN(cudaStreamSynchronize(stream1));
-                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataR, device_outputDataR,
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_outputDataR, device_outputDataR,
                                                   outputWidth * outputHeight * sizeof(float),
                                                   cudaMemcpyDeviceToHost, stream1));
 
-                CUDA_CHECK_RETURN(cudaStreamSynchronize(stream2));
-                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataG, device_outputDataG,
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_outputDataG, device_outputDataG,
                                                   outputWidth * outputHeight * sizeof(float),
                                                   cudaMemcpyDeviceToHost, stream2));
 
-                CUDA_CHECK_RETURN(cudaStreamSynchronize(stream3));
-                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataB, device_outputDataB,
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_outputDataB, device_outputDataB,
                                                   outputWidth * outputHeight * sizeof(float),
                                                   cudaMemcpyDeviceToHost, stream3));
+
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataR, host_outputDataR, outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost, stream1));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataG, host_outputDataG, outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost, stream2));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataB, host_outputDataB, outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost, stream3));
 
                 CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
@@ -440,6 +454,14 @@ int main() {
                 cudaFree(device_outputDataB);
 
                 cudaFree(device_maskData);
+
+                cudaFreeHost(host_imageDataR);
+                cudaFreeHost(host_imageDataG);
+                cudaFreeHost(host_imageDataB);
+
+                cudaFreeHost(host_outputDataR);
+                cudaFreeHost(host_outputDataG);
+                cudaFreeHost(host_outputDataB);
             }
         }
 
