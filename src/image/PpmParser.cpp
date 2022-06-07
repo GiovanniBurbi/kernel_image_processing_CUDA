@@ -423,3 +423,26 @@ void test_images() {
     image_delete(newImg);
     image_delete(inputImg);
 }
+
+//    Convert RGB image to grayscale
+Image_t* PPMtoGrayscale(Image_t* inputImg){
+    Image_t* outImg = new_image(image_getWidth(inputImg), image_getHeight(inputImg), 1);
+    int width = image_getWidth(inputImg);
+    int height = image_getHeight(inputImg);
+    float r_val ;
+    float g_val;
+    float b_val;
+    float gray_val;
+    for (int col = 0; col < width; col++) {
+        for (int row = 0; row < height; row++) {
+            r_val = image_getPixel(inputImg, col, row, 0);
+            g_val = image_getPixel(inputImg, col, row, 1);
+            b_val = image_getPixel(inputImg, col, row, 2);
+            gray_val = 0.3*r_val + 0.59*g_val + 0.11*b_val;
+            image_setPixel(outImg, col, row, 0, gray_val);
+        }
+
+    }
+//    PPM_export("../resources/source/grayImage.ppm", outImg);
+    return outImg;
+}

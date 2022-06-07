@@ -769,7 +769,7 @@ __global__ void convolutionTilingNoPaddingSoAChannelR(const float* __restrict__ 
         resultR[(y * (width - PIXEL_LOST) + x)] = accumR;
     }
 
-//    __syncthreads();
+    __syncthreads();
 }
 
 __global__ void convolutionTilingNoPaddingSoAChannelG(const float* __restrict__ dataG, float* __restrict__ resultG, int width, int height){
@@ -820,7 +820,7 @@ __global__ void convolutionTilingNoPaddingSoAChannelG(const float* __restrict__ 
         resultG[(y * (width - PIXEL_LOST) + x)] = accumG;
     }
 
-//    __syncthreads();
+    __syncthreads();
 }
 
 __global__ void convolutionTilingNoPaddingSoAChannelB(const float* __restrict__ dataB, float* __restrict__ resultB, int width, int height){
@@ -871,5 +871,5 @@ __global__ void convolutionTilingNoPaddingSoAChannelB(const float* __restrict__ 
         resultB[(y * (width - PIXEL_LOST) + x)] = accumB;
     }
 
-//    __syncthreads();
+    __syncthreads();
 }

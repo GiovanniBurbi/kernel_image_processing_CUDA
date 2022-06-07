@@ -29,8 +29,8 @@ static_assert(BLOCK_WIDTH * BLOCK_WIDTH <= 1024, "max number of threads per bloc
 
 #define ASYNC true
 
-#define NAIVE true
-#define TILING false
+#define NAIVE false
+#define TILING true
 
 __constant__ float MASK[MASK_WIDTH * MASK_WIDTH];
 
@@ -186,6 +186,8 @@ int main() {
 
                 cudaFree(device_imageData);
                 cudaFree(device_outputData);
+
+                cudaFree(MASK);
             }
         }
         log.append("took ").append(std::to_string(time/ITER)).append(" seconds");
@@ -395,6 +397,7 @@ int main() {
                 CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataB,
                                                  outputWidth * outputHeight * sizeof(float)));
 
+//                NON DOVREBBE ESSERE ASYNC VISTO CHE FACCIO CON MEMORIA PINNED E CON MEMORIA NON!! PINNED
                 CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataR, imageDataR, imageWidth * imageHeight * sizeof(float),
                                                   cudaMemcpyHostToHost, stream1));
                 CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataG, imageDataG, imageWidth * imageHeight * sizeof(float),
@@ -511,9 +514,9 @@ int main() {
 
                 CUDA_CHECK_RETURN(cudaMemcpyToSymbol(MASK, kernel, MASK_WIDTH * MASK_WIDTH * sizeof(float)));
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH_NAIVE),
-                             ceil((float) imageHeight / BLOCK_WIDTH_NAIVE));
-                dim3 dimBlock(BLOCK_WIDTH_NAIVE, BLOCK_WIDTH_NAIVE);
+                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH),
+                             ceil((float) imageHeight / BLOCK_WIDTH));
+                dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
 
                 convolutionTilingNoPaddingSoA<<<dimGrid, dimBlock>>>(device_imageDataR, device_imageDataG,
                                                                      device_imageDataB,
@@ -540,6 +543,164 @@ int main() {
                 cudaFree(device_outputDataR);
                 cudaFree(device_outputDataG);
                 cudaFree(device_outputDataB);
+
+                cudaFree(MASK);
+            }
+        }
+
+        if(TILING && ASYNC) {
+            log.append("tiling with async loading ");
+            output_name.append("TilingAsync");
+
+            for (int i = 0; i < ITER; i++) {
+                if (i != 0) image_delete(outputImage);
+
+                outputImage = new_imageSoA(outputWidth, outputHeight, imageChannels);
+
+                cudaStream_t stream1;
+                cudaStream_t stream2;
+                cudaStream_t stream3;
+
+                cudaStreamCreate(&stream1);
+                cudaStreamCreate(&stream2);
+                cudaStreamCreate(&stream3);
+
+                float* host_imageDataR;
+                float* host_imageDataG;
+                float* host_imageDataB;
+
+                float* host_outputDataR;
+                float* host_outputDataG;
+                float* host_outputDataB;
+
+                imageDataR = image_getR(inputImage);
+                imageDataG = image_getG(inputImage);
+                imageDataB = image_getB(inputImage);
+
+                outputDataR = image_getR(outputImage);
+                outputDataG = image_getG(outputImage);
+                outputDataB = image_getB(outputImage);
+
+                startTime = std::chrono::high_resolution_clock::now();
+
+                CUDA_CHECK_RETURN(cudaMemcpyToSymbol(MASK, kernel, MASK_WIDTH * MASK_WIDTH * sizeof(float)));
+
+                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH),
+                             ceil((float) imageHeight / BLOCK_WIDTH));
+                dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
+
+                CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageDataR,
+                                             imageWidth * imageHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageDataG,
+                                             imageWidth * imageHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageDataB,
+                                             imageWidth * imageHeight * sizeof(float)));
+
+                CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputDataR,
+                                             outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputDataG,
+                                             outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMalloc((void **) &device_outputDataB,
+                                             outputWidth * outputHeight * sizeof(float)));
+
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_imageDataR,
+                                                 imageWidth * imageHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_imageDataG,
+                                                 imageWidth * imageHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_imageDataB,
+                                                 imageWidth * imageHeight * sizeof(float)));
+
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataR,
+                                                 outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataG,
+                                                 outputWidth * outputHeight * sizeof(float)));
+                CUDA_CHECK_RETURN(cudaMallocHost((void **) &host_outputDataB,
+                                                 outputWidth * outputHeight * sizeof(float)));
+
+//                from pageable host memory to pinned host memory
+                CUDA_CHECK_RETURN(cudaMemcpy(host_imageDataR, imageDataR, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost));
+                CUDA_CHECK_RETURN(cudaMemcpy(host_imageDataG, imageDataG, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost));
+                CUDA_CHECK_RETURN(cudaMemcpy(host_imageDataB, imageDataB, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost));
+
+//                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataR, imageDataR, imageWidth * imageHeight * sizeof(float),
+//                                             cudaMemcpyHostToHost, stream1));
+//                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataG, imageDataG, imageWidth * imageHeight * sizeof(float),
+//                                             cudaMemcpyHostToHost, stream2));
+//                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_imageDataB, imageDataB, imageWidth * imageHeight * sizeof(float),
+//                                             cudaMemcpyHostToHost, stream3));
+
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataR, host_imageDataR, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToDevice, stream1));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataG, host_imageDataG, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToDevice, stream2));
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(device_imageDataB, host_imageDataB, imageWidth * imageHeight * sizeof(float),
+                                                  cudaMemcpyHostToDevice, stream3));
+
+                convolutionTilingNoPaddingSoAChannelR<<<dimGrid, dimBlock, 0, stream1>>>(device_imageDataR, device_outputDataR,
+                                                                                        imageWidth, imageHeight);
+
+                convolutionTilingNoPaddingSoAChannelG<<<dimGrid, dimBlock, 0, stream2>>>(device_imageDataG, device_outputDataG,
+                                                                                        imageWidth, imageHeight);
+
+                convolutionTilingNoPaddingSoAChannelB<<<dimGrid, dimBlock, 0, stream3>>>(device_imageDataB, device_outputDataB,
+                                                                                        imageWidth, imageHeight);
+
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_outputDataR, device_outputDataR,
+                                                  outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyDeviceToHost, stream1));
+
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_outputDataG, device_outputDataG,
+                                                  outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyDeviceToHost, stream2));
+
+                CUDA_CHECK_RETURN(cudaMemcpyAsync(host_outputDataB, device_outputDataB,
+                                                  outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyDeviceToHost, stream3));
+
+                CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+
+//                from pinned host memory to pageable host memory
+                CUDA_CHECK_RETURN(cudaMemcpy(outputDataR, host_outputDataR, outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost));
+                CUDA_CHECK_RETURN(cudaMemcpy(outputDataG, host_outputDataG, outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost));
+                CUDA_CHECK_RETURN(cudaMemcpy(outputDataB, host_outputDataB, outputWidth * outputHeight * sizeof(float),
+                                                  cudaMemcpyHostToHost));
+
+//                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataR, host_outputDataR, outputWidth * outputHeight * sizeof(float),
+//                                             cudaMemcpyHostToHost, stream1));
+//                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataG, host_outputDataG, outputWidth * outputHeight * sizeof(float),
+//                                             cudaMemcpyHostToHost, stream2));
+//                CUDA_CHECK_RETURN(cudaMemcpyAsync(outputDataB, host_outputDataB, outputWidth * outputHeight * sizeof(float),
+//                                             cudaMemcpyHostToHost, stream3));
+
+
+                endTime = std::chrono::high_resolution_clock::now();
+                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+
+                cudaStreamDestroy(stream1);
+                cudaStreamDestroy(stream2);
+                cudaStreamDestroy(stream3);
+
+                cudaFree(device_imageDataR);
+                cudaFree(device_imageDataG);
+                cudaFree(device_imageDataB);
+                cudaFree(device_outputDataR);
+                cudaFree(device_outputDataG);
+                cudaFree(device_outputDataB);
+
+                cudaFreeHost(host_imageDataR);
+                cudaFreeHost(host_imageDataG);
+                cudaFreeHost(host_imageDataB);
+
+                cudaFreeHost(host_outputDataR);
+                cudaFreeHost(host_outputDataG);
+                cudaFreeHost(host_outputDataB);
+
+                cudaFree(MASK);
             }
         }
 
