@@ -108,6 +108,10 @@ bool File_write(FILE* file, const void *buffer, size_t size, size_t count) {
     return true;
 }
 
+/*
+ * Import a ppm image and return a pointer to an Image_t struct
+ * The data layout is Array of Structures
+ * */
 Image_t* PPM_import(const char *filename) {
     Image_t* img;
     FILE* file;
@@ -268,6 +272,9 @@ ImageSoA_t* PPM_importSoA(const char *filename) {
     return img;
 }
 
+/*
+ * It takes as input a reference to an Image_t struct and export a ppm image from it
+ * */
 bool PPM_export(const char *filename, Image_t* img) {
     int ii;
     int jj;
