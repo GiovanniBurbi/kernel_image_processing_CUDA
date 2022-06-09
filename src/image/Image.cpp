@@ -3,7 +3,7 @@
 //
 
 #include "Image.h"
-#include "utils/Utils.h"
+#include "../utils/Utils.h"
 #include <iostream>
 #include <cassert>
 

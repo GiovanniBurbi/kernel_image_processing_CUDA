@@ -13,6 +13,8 @@ ImageSoA_t* PPM_importSoA(const char *filename);
 bool PPM_export(const char *filename, Image_t* img);
 bool PPM_exportSoA(const char *filename, ImageSoA_t* img);
 
+Image_t* PPMtoGrayscale(Image_t* inputImg);
+
 void test_images();
 
 #endif //KERNEL_IMAGE_PROCESSING_CUDA_PPMPARSER_H
