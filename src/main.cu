@@ -19,9 +19,9 @@ static_assert(BLOCK_WIDTH * BLOCK_WIDTH <= 1024, "max number of threads per bloc
 
 #define ITER 1
 
-#define SOA true
+#define SOA false
 
-#define ASYNC true
+#define ASYNC false
 
 #define NAIVE true
 #define TILING false
@@ -91,6 +91,7 @@ int main() {
         if (NAIVE) {
             time = 0;
             log.append("naive ");
+            output_name.append("Naive");
 
             float *device_imageData;
             float *device_outputData;
