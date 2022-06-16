@@ -10,21 +10,21 @@
 #define IMPORT_PATH "../resources/source/"
 #define EXPORT_PATH "../resources/results/"
 
-#define IMAGE "lake"
+#define IMAGE "deer480p"
 
-#define BLOCK_WIDTH_NAIVE 8
+#define BLOCK_WIDTH_NAIVE 32
 
 #define BLOCK_WIDTH (TILE_WIDTH)
 static_assert(BLOCK_WIDTH * BLOCK_WIDTH <= 1024, "max number of threads per block exceeded");
 
-#define ITER 1
+#define ITER 15
 
 #define SOA false
 
 #define ASYNC false
 
-#define NAIVE true
-#define TILING false
+#define NAIVE false
+#define TILING true
 
 __constant__ float MASK[MASK_WIDTH * MASK_WIDTH];
 
@@ -61,7 +61,7 @@ int main() {
     filename.append(IMPORT_PATH).append(IMAGE).append(".ppm");
     output_name.append(EXPORT_PATH).append(IMAGE).append("Cuda");
 
-    auto maskType = kernelsType::outline;
+    auto maskType = kernelsType::sharpen;
 
     float *kernel = createKernel(maskType);
     std::string maskName = kernelName(maskType);
@@ -92,6 +92,7 @@ int main() {
             time = 0;
             log.append("naive ");
             output_name.append("Naive");
+            output_name.append("BlockW").append(std::to_string(BLOCK_WIDTH_NAIVE));
 
             float *device_imageData;
             float *device_outputData;
@@ -125,18 +126,22 @@ int main() {
                              ceil((float) imageHeight / BLOCK_WIDTH_NAIVE));
                 dim3 dimBlock(BLOCK_WIDTH_NAIVE, BLOCK_WIDTH_NAIVE);
 
+//                startTime = std::chrono::high_resolution_clock::now();
+
                 convolutionNaive<<<dimGrid, dimBlock>>>(device_imageData, device_maskData,
                                                         device_outputData, imageWidth, imageHeight,
                                                         imageChannels);
 
                 CUDA_CHECK_RETURN(cudaDeviceSynchronize());
 
+//                endTime = std::chrono::high_resolution_clock::now();
+
                 CUDA_CHECK_RETURN(cudaMemcpy(outputData, device_outputData,
                                              outputWidth * outputHeight * imageChannels * sizeof(float),
                                              cudaMemcpyDeviceToHost));
 
                 endTime = std::chrono::high_resolution_clock::now();
-                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+                time += std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
 
                 cudaFree(device_imageData);
                 cudaFree(device_outputData);
@@ -149,6 +154,7 @@ int main() {
 
             log.append("with tiling ");
             output_name.append("Tiling");
+            output_name.append("TileW").append(std::to_string(BLOCK_WIDTH));
 
             float *device_imageData;
             float *device_outputData;
@@ -176,23 +182,29 @@ int main() {
                              ceil((float) imageHeight / BLOCK_WIDTH));
                 dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
 
+//                startTime = std::chrono::high_resolution_clock::now();
+
                 convolutionTiling<<<dimGrid, dimBlock>>>(device_imageData,
                                                          device_outputData, imageWidth, imageHeight,
                                                          imageChannels);
+
+                CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+
+//                endTime = std::chrono::high_resolution_clock::now();
 
                 CUDA_CHECK_RETURN(cudaMemcpy(outputData, device_outputData,
                                              outputWidth * outputHeight * imageChannels * sizeof(float),
                                              cudaMemcpyDeviceToHost));
 
                 endTime = std::chrono::high_resolution_clock::now();
-                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+                time += std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
 
                 cudaFree(device_imageData);
                 cudaFree(device_outputData);
                 cudaFree(MASK);
             }
         }
-        log.append("took ").append(std::to_string(time/ITER)).append(" seconds");
+        log.append("took ").append(std::to_string(time/ITER)).append(" microseconds");
         printf("%s\n", log.c_str());
 
         output_name.append(".ppm");
@@ -241,6 +253,7 @@ int main() {
 
             log.append("naive ");
             output_name.append("Naive");
+            output_name.append("BlockW").append(std::to_string(BLOCK_WIDTH_NAIVE));
 
             float *device_maskData;
 
@@ -257,7 +270,7 @@ int main() {
                 outputDataG = image_getG(outputImage);
                 outputDataB = image_getB(outputImage);
 
-                startTime = std::chrono::high_resolution_clock::now();
+//                startTime = std::chrono::high_resolution_clock::now();
 
 //              Allocate space for channel red, green and blue of the original image data in the device
                 CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageDataR,
@@ -297,12 +310,16 @@ int main() {
                              ceil((float) imageHeight / BLOCK_WIDTH_NAIVE));
                 dim3 dimBlock(BLOCK_WIDTH_NAIVE, BLOCK_WIDTH_NAIVE);
 
+                startTime = std::chrono::high_resolution_clock::now();
+
                 convolutionNaiveSoA<<<dimGrid, dimBlock>>>(device_imageDataR, device_imageDataG, device_imageDataB,
                                                            device_maskData, device_outputDataR, device_outputDataG,
                                                            device_outputDataB,
                                                            imageWidth, imageHeight);
 
                 CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+
+                endTime = std::chrono::high_resolution_clock::now();
 
 //              Transfer result from the device to the host
                 CUDA_CHECK_RETURN(cudaMemcpy(outputDataR, device_outputDataR,
@@ -315,8 +332,8 @@ int main() {
                                              outputWidth * outputHeight * sizeof(float),
                                              cudaMemcpyDeviceToHost));
 
-                endTime = std::chrono::high_resolution_clock::now();
-                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+//                endTime = std::chrono::high_resolution_clock::now();
+                time += std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
 
                 cudaFree(device_imageDataR);
                 cudaFree(device_imageDataG);
@@ -334,6 +351,7 @@ int main() {
 
             log.append("naive with async loading ");
             output_name.append("NaiveAsync");
+            output_name.append("BlockW").append(std::to_string(BLOCK_WIDTH_NAIVE));
 
             float *device_maskData;
 
@@ -457,7 +475,7 @@ int main() {
                                                   cudaMemcpyHostToHost));
 
                 endTime = std::chrono::high_resolution_clock::now();
-                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+                time += std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
 
                 cudaStreamDestroy(stream1);
                 cudaStreamDestroy(stream2);
@@ -488,6 +506,7 @@ int main() {
 
             log.append("tiling ");
             output_name.append("Tiling");
+            output_name.append("TileW").append(std::to_string(BLOCK_WIDTH));
 
             for (int i = 0; i < ITER; i++) {
                 if (i != 0) image_delete(outputImage);
@@ -502,7 +521,7 @@ int main() {
                 outputDataG = image_getG(outputImage);
                 outputDataB = image_getB(outputImage);
 
-                startTime = std::chrono::high_resolution_clock::now();
+//                startTime = std::chrono::high_resolution_clock::now();
 
                 CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageDataR,
                                              imageWidth * imageHeight * sizeof(float)));
@@ -534,11 +553,17 @@ int main() {
                              ceil((float) imageHeight / BLOCK_WIDTH));
                 dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
 
+                startTime = std::chrono::high_resolution_clock::now();
+
                 convolutionTilingSoA<<<dimGrid, dimBlock>>>(device_imageDataR, device_imageDataG,
                                                             device_imageDataB,
                                                             device_outputDataR, device_outputDataG,
                                                             device_outputDataB,
                                                             imageWidth, imageHeight);
+
+                CUDA_CHECK_RETURN(cudaDeviceSynchronize());
+
+                endTime = std::chrono::high_resolution_clock::now();
 
                 CUDA_CHECK_RETURN(cudaMemcpy(outputDataR, device_outputDataR,
                                              outputWidth * outputHeight * sizeof(float),
@@ -550,8 +575,8 @@ int main() {
                                              outputWidth * outputHeight * sizeof(float),
                                              cudaMemcpyDeviceToHost));
 
-                endTime = std::chrono::high_resolution_clock::now();
-                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+//                endTime = std::chrono::high_resolution_clock::now();
+                time += std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
 
                 cudaFree(device_imageDataR);
                 cudaFree(device_imageDataG);
@@ -569,6 +594,7 @@ int main() {
 
             log.append("tiling with async loading ");
             output_name.append("TilingAsync");
+            output_name.append("TileW").append(std::to_string(BLOCK_WIDTH));
 
             for (int i = 0; i < ITER; i++) {
                 if (i != 0) image_delete(outputImage);
@@ -682,7 +708,7 @@ int main() {
                                                   cudaMemcpyHostToHost));
 
                 endTime = std::chrono::high_resolution_clock::now();
-                time += std::chrono::duration_cast<std::chrono::duration<float>>(endTime - startTime).count();
+                time += std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
 
                 cudaStreamDestroy(stream1);
                 cudaStreamDestroy(stream2);
@@ -707,7 +733,7 @@ int main() {
             }
         }
 
-        log.append("took ").append(std::to_string(time/ITER)).append(" seconds");
+        log.append("took ").append(std::to_string(time/ITER)).append(" microseconds");
         printf("%s\n", log.c_str());
 
         output_name.append(".ppm");

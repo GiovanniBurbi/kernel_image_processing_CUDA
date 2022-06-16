@@ -8,7 +8,6 @@
 #include <cuda_runtime_api.h>
 
 #define TILE_WIDTH 32
-
 /*
  * Implementation with "padding"
  * */
