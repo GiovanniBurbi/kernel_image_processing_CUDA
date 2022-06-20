@@ -7,6 +7,10 @@
 
 #include <memory>
 
+/*
+ * Struct that represent an image,
+ * Data contains the values of the pixels store in an Array of Structures layout
+ * */
 typedef struct {
     int width;
     int height;

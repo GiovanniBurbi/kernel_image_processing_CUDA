@@ -9,6 +9,9 @@
 #define MASK_WIDTH 3
 #define MASK_RADIUS (MASK_WIDTH / 2)
 
+/*
+ * Enum of different kernels (masks) types
+ * */
 enum kernelsType {
     boxBlur = 0,
     gaussianBlur = 1,
@@ -24,5 +27,7 @@ float* createEmbossKernel();
 float* createGaussianBlurKernel();
 float* createOutlineKernel();
 float* createSharpenKernel();
+
+std::string kernelName(int type);
 
 #endif //KERNEL_IMAGE_PROCESSING_CUDA_KERNEL_H

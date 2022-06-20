@@ -6,6 +6,9 @@
 
 #define KERNEL_SIZE 9
 
+/*
+ * Return a 3x3 kernel based on an int value from the enum type defined in kernel.h
+ * */
 float* createKernel(int type) {
     switch (type) {
         case kernelsType::boxBlur:
@@ -23,6 +26,28 @@ float* createKernel(int type) {
             return nullptr;
     }
 }
+
+std::string kernelName(int type){
+    switch (type) {
+        case kernelsType::boxBlur:
+            return "BoxBlur";
+        case kernelsType::gaussianBlur:
+            return "GaussianBlur";
+        case kernelsType::emboss:
+            return "Emboss";
+        case kernelsType::outline:
+            return "Outline";
+        case kernelsType::sharpen:
+            return "Sharpen";
+        default:
+            std::cerr << "Filter type not available." << std::endl;
+            return "";
+    }
+}
+
+/*
+ * Allocate space for a 3x3 kernel and return the pointer
+ * */
 float* allocateEmptyKernel() {
     auto* kernel = (float*) malloc(sizeof(float) * KERNEL_SIZE);
     return kernel;
