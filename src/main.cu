@@ -122,8 +122,8 @@ int main() {
                                              MASK_WIDTH * MASK_WIDTH * sizeof(float),
                                              cudaMemcpyHostToDevice));
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH_NAIVE),
-                             ceil((float) imageHeight / BLOCK_WIDTH_NAIVE));
+                dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH_NAIVE),
+                             ceil((float) outputHeight / BLOCK_WIDTH_NAIVE));
                 dim3 dimBlock(BLOCK_WIDTH_NAIVE, BLOCK_WIDTH_NAIVE);
 
                 startTime = std::chrono::high_resolution_clock::now();
@@ -178,8 +178,8 @@ int main() {
                                              cudaMemcpyHostToDevice));
                 CUDA_CHECK_RETURN(cudaMemcpyToSymbol(MASK, kernel, MASK_WIDTH * MASK_WIDTH * sizeof(float)));
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH),
-                             ceil((float) imageHeight / BLOCK_WIDTH));
+                dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH),
+                             ceil((float) outputHeight / BLOCK_WIDTH));
                 dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
 
                 startTime = std::chrono::high_resolution_clock::now();
@@ -306,8 +306,8 @@ int main() {
                                              MASK_WIDTH * MASK_WIDTH * sizeof(float),
                                              cudaMemcpyHostToDevice));
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH_NAIVE),
-                             ceil((float) imageHeight / BLOCK_WIDTH_NAIVE));
+                dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH_NAIVE),
+                             ceil((float) outputHeight / BLOCK_WIDTH_NAIVE));
                 dim3 dimBlock(BLOCK_WIDTH_NAIVE, BLOCK_WIDTH_NAIVE);
 
                 startTime = std::chrono::high_resolution_clock::now();
@@ -387,8 +387,8 @@ int main() {
 
                 startTime = std::chrono::high_resolution_clock::now();
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH_NAIVE),
-                             ceil((float) imageHeight / BLOCK_WIDTH_NAIVE));
+                dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH_NAIVE),
+                             ceil((float) outputHeight / BLOCK_WIDTH_NAIVE));
                 dim3 dimBlock(BLOCK_WIDTH_NAIVE, BLOCK_WIDTH_NAIVE);
 
                 CUDA_CHECK_RETURN(cudaMalloc((void **) &device_maskData,
@@ -549,8 +549,8 @@ int main() {
 
                 CUDA_CHECK_RETURN(cudaMemcpyToSymbol(MASK, kernel, MASK_WIDTH * MASK_WIDTH * sizeof(float)));
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH),
-                             ceil((float) imageHeight / BLOCK_WIDTH));
+                dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH),
+                             ceil((float) outputHeight / BLOCK_WIDTH));
                 dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
 
                 startTime = std::chrono::high_resolution_clock::now();
@@ -629,8 +629,8 @@ int main() {
 
                 CUDA_CHECK_RETURN(cudaMemcpyToSymbol(MASK, kernel, MASK_WIDTH * MASK_WIDTH * sizeof(float)));
 
-                dim3 dimGrid(ceil((float) imageWidth / BLOCK_WIDTH),
-                             ceil((float) imageHeight / BLOCK_WIDTH));
+                dim3 dimGrid(ceil((float) outputWidth / BLOCK_WIDTH),
+                             ceil((float) outputHeight / BLOCK_WIDTH));
                 dim3 dimBlock(BLOCK_WIDTH, BLOCK_WIDTH);
 
                 CUDA_CHECK_RETURN(cudaMalloc((void **) &device_imageDataR,
