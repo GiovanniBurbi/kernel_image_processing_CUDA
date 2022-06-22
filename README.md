@@ -18,7 +18,7 @@ we used the **asynchronous mechanism** of CUDA, the **streams**, to overlap the 
 
 We also show how using a cache friendly data organization in memory, the **Structure of Arrays**, results in coalesced memory accesses that, in turn, give performance improvements.
 
-For more details on the development process of the project and the tools used see the [Final Report]().
+For more details on the development process of the project and the tools used see the [Final Report](https://github.com/GiovanniBurbi/kernel_image_processing_CUDA/blob/master/Parallel_Computing_Kernel_Image_Processing.pdf).
 
 
 <div align="center">
